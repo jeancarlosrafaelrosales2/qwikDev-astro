@@ -140,13 +140,13 @@ export async function runQwikClientBuild(opts: {
           if (
             id.startsWith("virtual:") ||
             id === "@astrojs/compiler-rs" ||
-            // fsevents is a macOS-only optional native dependency of chokidar/rollup.
-            // On macOS it resolves to the native module; on Linux it is not installed.
-            // rollup/dist/es/shared/node-entry.js imports it optionally. The inner
-            // Qwik builds never use the filesystem-watching code path that needs
-            // fsevents, so an empty stub matches the macOS optional-dependency
-            // behavior and allows the build to succeed on Linux/CI.
-            id === "fsevents"
+            // fsevents: macOS-only optional dep of chokidar/rollup — not available on Linux/CI
+            id === "fsevents" ||
+            // @astrojs/internal-helpers uses Node.js-only APIs (fileURLToPath, mkdirSync…)
+            // which are not available in __vite-browser-external stubs. The inner Qwik
+            // builds do not call these helpers at runtime; they appear only through
+            // transitive static analysis of the server-side import graph.
+            id.startsWith("@astrojs/internal-helpers")
           )
             return "\0" + id;
           return undefined;
@@ -155,7 +155,8 @@ export async function runQwikClientBuild(opts: {
           if (
             id.startsWith("\0virtual:") ||
             id === "\0@astrojs/compiler-rs" ||
-            id === "\0fsevents"
+            id === "\0fsevents" ||
+            id.startsWith("\0@astrojs/internal-helpers")
           )
             return "export default {};";
           return undefined;
