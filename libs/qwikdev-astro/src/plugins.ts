@@ -39,37 +39,32 @@ export function stripOutputOptions(plugins: PluginOption[]) {
 }
 /**
  * Filters Astro's vite plugins down to those safe/needed for the standalone
- * Qwik client build — keeps alias resolution, virtual modules, etc. while
- * stripping Astro-internal build orchestration and our own qwik plugins.
+ * Qwik client build (ssr: false, browser target).
+ *
+ * Uses a strict allowlist — only plugins explicitly known to be browser-safe
+ * and required for the inner client build pass through. The previous blocklist
+ * approach let server-only plugins (rollup, tsx, jiti, fdir, tinyglobby, etc.)
+ * leak into the browser-target Rollup build, causing hard UNRESOLVED_IMPORT
+ * errors (e.g. fsevents on Linux) and MISSING_EXPORT errors (node:fs/promises
+ * via astro-content-virtual-mod-plugin) that cannot be suppressed from user
+ * config because runQwikClientBuild does not propagate build.rollupOptions.
+ *
+ * Vite's built-in plugins (vite:css, vite:resolve, etc.) are automatically
+ * added by vite.build() and do NOT need to be listed here.
+ *
+ * To add a new plugin to the inner build, add its exact name to ALLOWED.
  */
 export function filterAstroPlugins(plugins: PluginOption[]): PluginOption[] {
+  const ALLOWED = new Set([
+    "astro:transitions",
+    "astro:tsconfig-alias",
+  ]);
+
   return (plugins?.flatMap((p) => (Array.isArray(p) ? p : [p])) ?? [])
     .filter((plugin): plugin is { name: string } & NonNullable<PluginOption> => {
       return plugin != null && typeof plugin === "object" && "name" in plugin;
     })
-    .filter((plugin) => {
-      const isQwikPlugin =
-        plugin.name === "vite-plugin-qwik" ||
-        plugin.name === "vite-plugin-qwik-post" ||
-        plugin.name === "astro-qwik-post";
-      const isCoreBuildPlugin = plugin.name === "astro:build";
-      const isAstroBuildPlugin = plugin.name.startsWith("astro:build");
-      const isAstroInternalPlugin = plugin.name.includes("@astro");
-
-      const isAllowedPlugin =
-        plugin.name === "astro:transitions" ||
-        plugin.name.includes("virtual") ||
-        plugin.name === "astro:tsconfig-alias";
-
-      if (isAllowedPlugin) return true;
-
-      return !(
-        isCoreBuildPlugin ||
-        isAstroInternalPlugin ||
-        isAstroBuildPlugin ||
-        isQwikPlugin
-      );
-    });
+    .filter((plugin) => ALLOWED.has(plugin.name));
 }
 
 /** Runs a standalone Qwik client build to generate the manifest before Astro's prerender. */
