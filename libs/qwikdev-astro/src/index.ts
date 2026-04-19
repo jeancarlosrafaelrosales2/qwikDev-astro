@@ -20,7 +20,7 @@ import { createQwikFileFilter, resolveQwikPaths, scanQwikEntrypoints } from "./s
 
 const RESOLVED_VIRTUAL_ID = `\0${VIRTUAL_MODULE_NAME}`;
 
-const QWIK_NOEXTERNAL = ["@qwik.dev/core", "@qwik.dev/core/optimizer"];
+const QWIK_NOEXTERNAL = ["@qwik.dev/core"];
 
 /**
  * Ensures Qwik packages are in `resolve.noExternal` at the per-environment level.
@@ -163,7 +163,7 @@ export default function qwik(options?: Options): AstroIntegration {
         updateConfig({
           vite: {
             ssr: {
-              noExternal: ["@qwik.dev/core", "@qwik.dev/core/optimizer"]
+              noExternal: ["@qwik.dev/core"]
             },
             plugins: [
               qwikNoExternalPlugin,
