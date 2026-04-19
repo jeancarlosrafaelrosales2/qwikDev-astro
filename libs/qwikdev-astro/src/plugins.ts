@@ -105,7 +105,16 @@ export async function runQwikClientBuild(opts: {
     build: {
       ssr: false,
       outDir: opts.finalDir,
-      emptyOutDir: false
+      emptyOutDir: false,
+      rollupOptions: {
+        // Externalize all virtual: modules from the inner client build.
+        // These are Astro/Vite runtime constructs (virtual:image-service,
+        // virtual:astro/*, etc.) that have no meaning in a browser bundle.
+        // The @qwik.dev/core onwarn handler uses Z.exporter (Rollup 3 API)
+        // but Rollup 4 uses Z.source, so it fails to suppress these warnings.
+        // Externalizing is cleaner and more predictable than suppressing.
+        external: (id: string) => id.startsWith("virtual:")
+      }
     }
   });
 }
