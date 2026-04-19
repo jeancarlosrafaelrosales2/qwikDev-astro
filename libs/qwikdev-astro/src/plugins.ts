@@ -122,15 +122,28 @@ export async function runQwikClientBuild(opts: {
       // These modules have no meaning in a browser (ssr:false) context — Qwik's
       // resumability means only event handlers run in the browser, not the full
       // component tree including SSR-only code paths that reference virtual modules.
+      //
+      // @astrojs/compiler-rs: an optional Rust-based Astro compiler (not installed
+      // by default). astro/dist/core/compile/compile-rs.js uses a dynamic
+      // `await import("@astrojs/compiler-rs")` inside a try/catch. Rollup 4
+      // statically analyzes dynamic import literals and emits UNRESOLVED_IMPORT.
+      // @qwik.dev/core's onwarn uses the Rollup 3 API field Z.exporter (renamed to
+      // Z.source in Rollup 4) so the warning is never suppressed, causing a throw.
+      // This stub is safe: the inner Qwik builds do NOT call .astro compilation
+      // (compile-rs.js); that happens in Astro's own build pipeline which has the
+      // correct packages. The dynamic import chain is only pulled in transitively
+      // through shared Astro utilities in the import graph.
       {
         name: "qwikdev-astro:virtual-browser-noop",
         enforce: "pre" as const,
         resolveId(id: string) {
-          if (id.startsWith("virtual:")) return "\0" + id;
+          if (id.startsWith("virtual:") || id === "@astrojs/compiler-rs")
+            return "\0" + id;
           return undefined;
         },
         load(id: string) {
-          if (id.startsWith("\0virtual:")) return "export default {};";
+          if (id.startsWith("\0virtual:") || id === "\0@astrojs/compiler-rs")
+            return "export default {};";
           return undefined;
         }
       },
