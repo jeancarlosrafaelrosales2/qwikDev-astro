@@ -162,9 +162,17 @@ export default function qwik(options?: Options): AstroIntegration {
 
         updateConfig({
           vite: {
-            ssr: {
-              noExternal: ["@qwik.dev/core"]
-            },
+            // NOTE: Do NOT set ssr.noExternal here.
+            // In Vite 7 the global ssr.noExternal affects ALL environments,
+            // including the client (browser) environment. If @qwik.dev/core or
+            // @qwik.dev/core/optimizer is forced to bundle in the client env,
+            // their transitive deps (Vite → tinyglobby → fdir) cause a hard
+            // MISSING_EXPORT error ("createRequire" not in __vite-browser-external).
+            //
+            // Per-environment noExternal is handled by qwikNoExternalPlugin
+            // (createQwikNoExternalPlugin), which uses configEnvironment to apply
+            // noExternal only to server-consumer environments (ssr, prerender…)
+            // and explicitly skips the client environment.
             plugins: [
               qwikNoExternalPlugin,
               virtualModulePlugin,
