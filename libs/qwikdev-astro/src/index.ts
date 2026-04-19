@@ -42,7 +42,17 @@ function createQwikNoExternalPlugin(): Plugin {
   return {
     name: "qwik-astro:noexternal",
     enforce: "pre",
-    configEnvironment(_name, options) {
+    configEnvironment(name, options) {
+      // The browser client environment must NOT bundle server-only packages
+      // like @qwik.dev/core/optimizer, which transitively imports Vite →
+      // tinyglobby → fdir → createRequire (node:module). In a browser build,
+      // node:module is replaced by __vite-browser-external which does not
+      // export createRequire, causing a hard Rollup MISSING_EXPORT error.
+      //
+      // This guard targets only server environments (ssr, prerender, etc.)
+      // while leaving the client environment unaffected by noExternal.
+      if (name === "client") return;
+
       const existing = options.resolve?.noExternal;
       if (existing === true) return;
 
