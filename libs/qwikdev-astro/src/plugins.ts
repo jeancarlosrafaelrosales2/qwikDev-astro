@@ -137,12 +137,26 @@ export async function runQwikClientBuild(opts: {
         name: "qwikdev-astro:virtual-browser-noop",
         enforce: "pre" as const,
         resolveId(id: string) {
-          if (id.startsWith("virtual:") || id === "@astrojs/compiler-rs")
+          if (
+            id.startsWith("virtual:") ||
+            id === "@astrojs/compiler-rs" ||
+            // fsevents is a macOS-only optional native dependency of chokidar/rollup.
+            // On macOS it resolves to the native module; on Linux it is not installed.
+            // rollup/dist/es/shared/node-entry.js imports it optionally. The inner
+            // Qwik builds never use the filesystem-watching code path that needs
+            // fsevents, so an empty stub matches the macOS optional-dependency
+            // behavior and allows the build to succeed on Linux/CI.
+            id === "fsevents"
+          )
             return "\0" + id;
           return undefined;
         },
         load(id: string) {
-          if (id.startsWith("\0virtual:") || id === "\0@astrojs/compiler-rs")
+          if (
+            id.startsWith("\0virtual:") ||
+            id === "\0@astrojs/compiler-rs" ||
+            id === "\0fsevents"
+          )
             return "export default {};";
           return undefined;
         }
