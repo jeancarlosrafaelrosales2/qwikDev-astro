@@ -101,20 +101,34 @@ export async function runQwikClientBuild(opts: {
   await build({
     ...(root ? { root } : {}),
     ...(resolve ? { resolve } : {}),
-    plugins: [...astroPlugins, qwikVite(config)],
+    plugins: [
+      // Astro registers virtual modules (virtual:image-service, virtual:astro/*,
+      // virtual:uno.css, etc.) via its plugin chain. That plugin chain is NOT present
+      // in this inner browser build (it was filtered by filterAstroPlugins).
+      // Without this plugin, any Astro core file that imports a virtual: module
+      // causes an UNRESOLVED_IMPORT hard error in Vite 7's onRollupLog.
+      // These modules have no meaning in a browser (ssr:false) context — Qwik's
+      // resumability means only event handlers run in the browser, not the full
+      // component tree including SSR-only code paths that reference virtual modules.
+      {
+        name: "qwikdev-astro:virtual-browser-noop",
+        enforce: "pre" as const,
+        resolveId(id: string) {
+          if (id.startsWith("virtual:")) return "\0" + id;
+          return undefined;
+        },
+        load(id: string) {
+          if (id.startsWith("\0virtual:")) return "export default {};";
+          return undefined;
+        }
+      },
+      ...astroPlugins,
+      qwikVite(config)
+    ],
     build: {
       ssr: false,
       outDir: opts.finalDir,
-      emptyOutDir: false,
-      rollupOptions: {
-        // Externalize all virtual: modules from the inner client build.
-        // These are Astro/Vite runtime constructs (virtual:image-service,
-        // virtual:astro/*, etc.) that have no meaning in a browser bundle.
-        // The @qwik.dev/core onwarn handler uses Z.exporter (Rollup 3 API)
-        // but Rollup 4 uses Z.source, so it fails to suppress these warnings.
-        // Externalizing is cleaner and more predictable than suppressing.
-        external: (id: string) => id.startsWith("virtual:")
-      }
+      emptyOutDir: false
     }
   });
 }
