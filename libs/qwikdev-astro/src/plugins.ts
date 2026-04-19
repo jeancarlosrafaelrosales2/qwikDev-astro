@@ -55,17 +55,22 @@ export function stripOutputOptions(plugins: PluginOption[]) {
  * To add a new plugin to the inner build, add its exact name to ALLOWED.
  */
 export function filterAstroPlugins(plugins: PluginOption[]): PluginOption[] {
-  // Only include Astro plugins that are:
-  //   1. Browser-safe (no Node.js-only imports via @rollup/pluginutils → rollup → fsevents)
-  //   2. Actually needed for the inner Qwik client browser build
+  // No Astro plugins are safe/needed for the inner Qwik client browser build.
   //
-  // "astro:tsconfig-alias" is intentionally EXCLUDED because it uses
-  // @rollup/pluginutils, which imports rollup/dist/es/shared/node-entry.js,
-  // which imports the macOS-only "fsevents" package.  Path aliases are already
-  // resolved via the `resolve` config passed directly to this build().
-  const ALLOWED = new Set([
-    "astro:transitions",
-  ]);
+  // Tested Astro plugins and why each is excluded:
+  //   "astro:tsconfig-alias"  — uses @rollup/pluginutils → rollup → fsevents (macOS-only)
+  //   "astro:transitions"     — imports astro/dist/core/compile/compile-rs.js
+  //                             which requires @astrojs/compiler-rs (Rust native addon)
+  //
+  // Path aliases are already provided via the resolve config propagated from
+  // astroViteConfig. Virtual modules (virtual:image-service, virtual:uno.css,
+  // virtual:astro/*, etc.) are handled by the qwikdev-astro:virtual-browser-noop
+  // plugin registered above.
+  //
+  // Vite's built-in plugins (vite:resolve, vite:css, etc.) are added automatically
+  // by vite.build() and must NOT appear here. The qwikVite() plugin handles all
+  // Qwik-specific compilation and optimisation for the browser target.
+  const ALLOWED = new Set<string>();
 
   return (plugins?.flatMap((p) => (Array.isArray(p) ? p : [p])) ?? [])
     .filter((plugin): plugin is { name: string } & NonNullable<PluginOption> => {
