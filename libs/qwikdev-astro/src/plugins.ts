@@ -55,9 +55,16 @@ export function stripOutputOptions(plugins: PluginOption[]) {
  * To add a new plugin to the inner build, add its exact name to ALLOWED.
  */
 export function filterAstroPlugins(plugins: PluginOption[]): PluginOption[] {
+  // Only include Astro plugins that are:
+  //   1. Browser-safe (no Node.js-only imports via @rollup/pluginutils → rollup → fsevents)
+  //   2. Actually needed for the inner Qwik client browser build
+  //
+  // "astro:tsconfig-alias" is intentionally EXCLUDED because it uses
+  // @rollup/pluginutils, which imports rollup/dist/es/shared/node-entry.js,
+  // which imports the macOS-only "fsevents" package.  Path aliases are already
+  // resolved via the `resolve` config passed directly to this build().
   const ALLOWED = new Set([
     "astro:transitions",
-    "astro:tsconfig-alias",
   ]);
 
   return (plugins?.flatMap((p) => (Array.isArray(p) ? p : [p])) ?? [])
