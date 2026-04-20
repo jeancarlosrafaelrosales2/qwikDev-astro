@@ -137,6 +137,9 @@ export async function runQwikClientBuild(opts: {
         name: "qwikdev-astro:virtual-browser-noop",
         enforce: "pre" as const,
         resolveId(id: string) {
+          // BRIDGE [ADR-007 · exp 2026-07-20]: qwikVite() ssr.noExternal leaks optimizer into ssr:false build → MISSING_EXPORT
+          if (id.startsWith("@qwik.dev/core/optimizer") || id === "fdir" || id === "tinyglobby")
+            return { id, external: true };
           if (
             id.startsWith("virtual:") ||
             id === "@astrojs/compiler-rs" ||
